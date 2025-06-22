@@ -33,13 +33,22 @@ app.listen(PORT, () => console.log(`🌐 Web server running on port ${PORT}`));
 
 // === Timeout Cleaner ===
 setInterval(() => {
+  handleTimeouts().catch(console.error);
+}, 60 * 1000);
+
+async function handleTimeouts() {
   const now = Date.now();
   for (const [type, queue] of Object.entries(queues)) {
     for (const [userId, joinedAt] of queue.entries()) {
       if (now - joinedAt >= SEARCH_TIMEOUT) {
         queue.delete(userId);
-        client.guilds.cache.forEach((guild) => {
-          const member = guild.members.cache.get(userId);
+        for (const guild of client.guilds.cache.values()) {
+          let member;
+          try {
+            member = await guild.members.fetch(userId);
+          } catch {
+            continue;
+          }
           const systemChannel = guild.systemChannel;
           if (member && systemChannel) {
             systemChannel
@@ -49,11 +58,11 @@ setInterval(() => {
               )
               .catch(() => {});
           }
-        });
+        }
       }
     }
   }
-}, 60 * 1000);
+}
 
 // === Bot Ready ===
 client.once(Events.ClientReady, () => {
